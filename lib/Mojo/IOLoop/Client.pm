@@ -7,6 +7,12 @@ use Mojo::IOLoop;
 use Scalar::Util 'weaken';
 use Socket qw(IPPROTO_TCP SO_ERROR TCP_NODELAY);
 
+# Non-blocking resolver support requires Net::DNS::Native
+use constant DNS => $ENV{MOJO_NO_DNS}
+  ? 0
+  : eval 'use Net::DNS::Native 0.10 (); 1';
+my $DNS = DNS ? Net::DNS::Native->new : undef;
+
 # IPv6 support requires IO::Socket::IP
 use constant IPV6 => $ENV{MOJO_NO_IPV6}
   ? 0
@@ -33,8 +39,39 @@ sub DESTROY { shift->_cleanup }
 sub connect {
   my $self = shift;
   my $args = ref $_[0] ? $_[0] : {@_};
+
+  # Timeout
   weaken $self;
-  $self->reactor->next_tick(sub { $self && $self->_connect($args) });
+  my $reactor = $self->reactor;
+  $self->{timer} = $reactor->timer($args->{timeout} || 10,
+    sub { $self->emit(error => 'Connect timeout') });
+
+  # Non-blocking resolver
+  if (DNS) {
+    my $address = $args->{socks_address} || ($args->{address} ||= 'localhost');
+    my $handle = $DNS->getaddrinfo($address, undef, {});
+    $reactor->io(
+      $handle => sub {
+        shift->remove($handle);
+
+        my ($err, @res) = $DNS->get_result($handle);
+        return $self->emit(error => "Can't resolve: $err") if $err;
+
+        my $r = $res[0];
+        my $address
+          = $r->{family} == AF_INET
+          ? Socket::inet_ntoa((Socket::unpack_sockaddr_in($r->{addr}))[1])
+          : Socket::inet_ntop(Socket::AF_INET6,
+          (Socket::unpack_sockaddr_in6($r->{addr}))[1]);
+        $args->{$args->{socks_address} ? 'socks_address' : 'address'}
+          = $address;
+
+        $self->_connect($args);
+      }
+    )->watch($handle, 1, 0);
+  }
+
+  $reactor->next_tick(sub { $self && $self->_connect($args) });
 }
 
 sub _cleanup {
@@ -48,8 +85,7 @@ sub _connect {
   my ($self, $args) = @_;
 
   my $handle;
-  my $reactor = $self->reactor;
-  my $address = $args->{socks_address} || ($args->{address} ||= 'localhost');
+  my $address = $args->{socks_address} || $args->{address};
   my $port = $args->{socks_port} || $args->{port} || ($args->{tls} ? 443 : 80);
   unless ($handle = $self->{handle} = $args->{handle}) {
     my %options = (
@@ -65,13 +101,10 @@ sub _connect {
   }
   $handle->blocking(0);
 
-  # Timeout
-  $self->{timer} = $reactor->timer($args->{timeout} || 10,
-    sub { $self->emit(error => 'Connect timeout') });
-
   # Wait for handle to become writable
   weaken $self;
-  $reactor->io($handle => sub { $self->_ready($args) })->watch($handle, 0, 1);
+  $self->reactor->io($handle => sub { $self->_ready($args) })
+    ->watch($handle, 0, 1);
 }
 
 sub _ready {
