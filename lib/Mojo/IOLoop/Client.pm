@@ -47,7 +47,8 @@ sub connect {
     unless DNS && $address ne 'localhost';
 
   # Non-blocking name resolution
-  my $handle = $self->{dns} = $DNS->getaddrinfo($address, undef, {});
+  my $handle = $self->{dns}
+    = $DNS->getaddrinfo($address, _port($args), {protocol => IPPROTO_TCP});
   $reactor->io(
     $handle => sub {
       shift->remove($handle);
@@ -72,11 +73,10 @@ sub _connect {
 
   my $handle;
   my $address = $args->{socks_address} || $args->{address};
-  my $port = $args->{socks_port} || $args->{port} || ($args->{tls} ? 443 : 80);
   unless ($handle = $self->{handle} = $args->{handle}) {
     my %options = (
       PeerAddr => $address eq 'localhost' ? '127.0.0.1' : $address,
-      PeerPort => $port
+      PeerPort => _port($args)
     );
     %options = (PeerAddrInfo => $args->{addr_info}) if $args->{addr_info};
     $options{Blocking} = 0;
@@ -92,6 +92,8 @@ sub _connect {
   $self->reactor->io($handle => sub { $self->_ready($args) })
     ->watch($handle, 0, 1);
 }
+
+sub _port { $_[0]->{socks_port} || $_[0]->{port} || ($_[0]->{tls} ? 443 : 80) }
 
 sub _ready {
   my ($self, $args) = @_;
