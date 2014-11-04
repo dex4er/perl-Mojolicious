@@ -47,8 +47,8 @@ sub connect {
     sub { $self->emit(error => 'Connect timeout') });
 
   # Non-blocking resolver
-  if (DNS) {
-    my $address = $args->{socks_address} || ($args->{address} ||= 'localhost');
+  my $address = $args->{socks_address} || ($args->{address} ||= 'localhost');
+  if (DNS && $address ne 'localhost') {
     my $handle = $DNS->getaddrinfo($address, undef, {});
     $reactor->io(
       $handle => sub {
