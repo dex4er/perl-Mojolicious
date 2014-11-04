@@ -44,7 +44,7 @@ sub connect {
   # Blocking name resolution
   my $address = $args->{socks_address} || ($args->{address} ||= 'localhost');
   return $reactor->next_tick(sub { $self && $self->_connect($args) })
-    unless DNS && $address ne 'localhost';
+    unless DNS && $address ne 'localhost' && !$args->{handle};
 
   # Non-blocking name resolution
   my $handle = $self->{dns}
