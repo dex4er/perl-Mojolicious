@@ -48,14 +48,16 @@ sub connect {
 
   # Non-blocking name resolution
   $address =~ s/[\[\]]//g;
-  my $handle = $self->{resolver}
+  my $handle = $self->{dns}
     = $DNS->getaddrinfo($address, _port($args), {protocol => IPPROTO_TCP});
   $reactor->io(
     $handle => sub {
-      shift->remove(my $handle = delete $self->{resolver});
+      my $reactor = shift;
 
-      my ($err, @res) = $DNS->get_result($handle);
+      $reactor->remove($self->{dns});
+      my ($err, @res) = $DNS->get_result(delete $self->{dns});
       return $self->emit(error => "Can't resolve: $err") if $err;
+
       $args->{addr_info} = \@res;
       $self->_connect($args);
     }
@@ -65,8 +67,8 @@ sub connect {
 sub _cleanup {
   my $self = shift;
   return $self unless my $reactor = $self->reactor;
-  $self->{$_} && $reactor->remove(delete $self->{$_}) for qw(timer handle);
-  $DNS->timedout($self->{resolver}) if $self->{resolver};
+  $DNS->timedout($self->{dns}) if $self->{dns};
+  $self->{$_} && $reactor->remove(delete $self->{$_}) for qw(dns timer handle);
   return $self;
 }
 
