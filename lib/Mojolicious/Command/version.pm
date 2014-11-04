@@ -13,7 +13,7 @@ sub run {
 
   my $ev    = eval 'use Mojo::Reactor::EV; 1' ? $EV::VERSION : 'not installed';
   my $class = 'Mojo::IOLoop::Client';
-  my $dns   = $class->DNS ? $Net::DNS::Native::VERSION : 'not installed';
+  my $dns   = $class->NDN ? $Net::DNS::Native::VERSION : 'not installed';
   my $socks = $class->SOCKS ? $IO::Socket::Socks::VERSION : 'not installed';
   my $tls   = $class->TLS ? $IO::Socket::SSL::VERSION : 'not installed';
 

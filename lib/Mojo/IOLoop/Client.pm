@@ -8,10 +8,10 @@ use Scalar::Util 'weaken';
 use Socket qw(IPPROTO_TCP SO_ERROR TCP_NODELAY);
 
 # Non-blocking name resolution requires Net::DNS::Native
-use constant DNS => $ENV{MOJO_NO_DNS}
+use constant NDN => $ENV{MOJO_NO_NDN}
   ? 0
   : eval 'use Net::DNS::Native 0.10 (); 1';
-my $DNS = DNS ? Net::DNS::Native->new : undef;
+my $NDN = NDN ? Net::DNS::Native->new : undef;
 
 # TLS support requires IO::Socket::SSL
 use constant TLS => $ENV{MOJO_NO_TLS}
@@ -44,18 +44,18 @@ sub connect {
   # Blocking name resolution
   my $address = $args->{socks_address} || ($args->{address} ||= 'localhost');
   return $reactor->next_tick(sub { $self && $self->_connect($args) })
-    unless DNS && $address ne 'localhost' && !$args->{handle};
+    unless NDN && $address ne 'localhost' && !$args->{handle};
 
   # Non-blocking name resolution
   $address =~ s/[\[\]]//g;
   my $handle = $self->{dns}
-    = $DNS->getaddrinfo($address, _port($args), {protocol => IPPROTO_TCP});
+    = $NDN->getaddrinfo($address, _port($args), {protocol => IPPROTO_TCP});
   $reactor->io(
     $handle => sub {
       my $reactor = shift;
 
       $reactor->remove($self->{dns});
-      my ($err, @res) = $DNS->get_result(delete $self->{dns});
+      my ($err, @res) = $NDN->get_result(delete $self->{dns});
       return $self->emit(error => "Can't resolve: $err") if $err;
 
       $args->{addr_info} = \@res;
@@ -67,7 +67,7 @@ sub connect {
 sub _cleanup {
   my $self = shift;
   return $self unless my $reactor = $self->reactor;
-  $DNS->timedout($self->{dns}) if $self->{dns};
+  $NDN->timedout($self->{dns}) if $self->{dns};
   $self->{$_} && $reactor->remove(delete $self->{$_}) for qw(dns timer handle);
   return $self;
 }
