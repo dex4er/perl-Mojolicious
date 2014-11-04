@@ -52,7 +52,7 @@ sub connect {
     = $DNS->getaddrinfo($address, _port($args), {protocol => IPPROTO_TCP});
   $reactor->io(
     $handle => sub {
-      shift->remove($handle);
+      shift->remove(my $handle = delete $self->{dns});
 
       my ($err, @res) = $DNS->get_result($handle);
       return $self->emit(error => "Can't resolve: $err") if $err;
@@ -65,7 +65,8 @@ sub connect {
 sub _cleanup {
   my $self = shift;
   return $self unless my $reactor = $self->reactor;
-  $self->{$_} && $reactor->remove(delete $self->{$_}) for qw(dns timer handle);
+  $self->{$_} && $reactor->remove(delete $self->{$_}) for qw(timer handle);
+  $DNS->timedout($self->{dns}) if $self->{dns};
   return $self;
 }
 
