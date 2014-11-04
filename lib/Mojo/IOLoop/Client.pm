@@ -11,7 +11,7 @@ use Socket qw(IPPROTO_TCP SO_ERROR TCP_NODELAY);
 use constant NDN => $ENV{MOJO_NO_NDN}
   ? 0
   : eval 'use Net::DNS::Native 0.10 (); 1';
-my $NDN = NDN ? Net::DNS::Native->new(pool => 5, extra_thread => 1) : undef;
+my $NDN = NDN ? Net::DNS::Native->new : undef;
 
 # TLS support requires IO::Socket::SSL
 use constant TLS => $ENV{MOJO_NO_TLS}
