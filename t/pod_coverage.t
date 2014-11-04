@@ -14,4 +14,4 @@ my @tiger = (
 );
 
 # False positive constants
-all_pod_coverage_ok({also_private => [qw(IPV6 TLS), @tiger]});
+all_pod_coverage_ok({also_private => ['TLS', @tiger]});

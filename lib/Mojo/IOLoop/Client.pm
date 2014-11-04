@@ -47,6 +47,7 @@ sub connect {
     unless DNS && $address ne 'localhost' && !$args->{handle};
 
   # Non-blocking name resolution
+  $address =~ s/[\[\]]//g;
   my $handle = $self->{dns}
     = $DNS->getaddrinfo($address, _port($args), {protocol => IPPROTO_TCP});
   $reactor->io(
