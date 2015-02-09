@@ -89,7 +89,7 @@ sub get_start_line_chunk {
 
     # Path
     my $url  = $self->url;
-    my $path = $url->path_query->to_string;
+    my $path = $url->path_query;
     $path = "/$path" unless $path =~ m!^/!;
 
     # CONNECT
